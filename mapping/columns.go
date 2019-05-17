@@ -40,6 +40,7 @@ func init() {
 		"zorder":               {"zorder", "int32", nil, MakeZOrder, nil, false},
 		"enumerate":            {"enumerate", "int32", nil, MakeEnumerate, nil, false},
 		"string_suffixreplace": {"string_suffixreplace", "string", nil, MakeSuffixReplace, nil, false},
+		"coalesce":             {"coalesce", "string", nil, MakeCoalesce, nil, false},
 	}
 }
 
@@ -413,4 +414,37 @@ func MakeSuffixReplace(columnName string, columnType ColumnType, column config.C
 	}
 
 	return suffixReplace, nil
+}
+
+func MakeCoalesce(columnName string, columnType ColumnType, column config.Column) (MakeValue, error) {
+	_keysList, ok := column.Args["keys"]
+	if !ok {
+		return nil, errors.New("missing keys in args for coalesce")
+	}
+
+	keysList, ok := _keysList.([]interface{})
+	if !ok {
+		return nil, errors.New("keys in args for coalesce not a list")
+	}
+
+	for _, key := range keysList {
+		_, ok := key.(string)
+		if !ok {
+			return nil, errors.New("value in keys not a string  ( coalesce mapping )")
+		}
+	}
+
+	coalesce := func(val string, elem *osm.Element, geom *geom.Geometry, match Match) interface{} {
+		if column.Key == "" {
+			for _, value := range keysList {
+				if r, ok := elem.Tags[value.(string)]; ok {
+					return r
+				}
+			}
+			return ""
+		}
+		return "-error-"
+	}
+
+	return coalesce, nil
 }
